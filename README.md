@@ -274,6 +274,33 @@ docker build -t registry.example.com/ai-chat:0.1.0 .
 docker push registry.example.com/ai-chat:0.1.0
 ```
 
+### Scripted AWS deployment (ap-south-1 or any region)
+
+`scripts/aws-deploy.sh` automates the full Option A flow on AWS: it creates a key pair, security group, t3.medium EC2 instance running Ubuntu 22.04, an Elastic IP, installs Docker via user-data, rsyncs the repo, generates all secrets, starts the stack, and runs the smoke test.
+
+```bash
+# Prerequisites: AWS CLI v2 configured (aws configure), rsync
+cd ai-chat
+./scripts/aws-deploy.sh              # creates everything from scratch
+# AIC_REGION=ap-south-1 (default) — override with AIC_REGION=us-east-1 etc.
+```
+
+After the stack is up, add an LLM provider and create your first agent headlessly:
+
+```bash
+AIC_HOST=http://<ELASTIC_IP>:8080 AIC_OPENAI_KEY=sk-... ./scripts/aws-configure.sh
+```
+
+When you buy a domain, point its A record at the Elastic IP and run:
+
+```bash
+./scripts/aws-add-domain.sh chat.yourdomain.com   # switches to HTTPS; Caddy handles TLS
+```
+
+The scripts are idempotent — pass `AIC_INSTANCE_ID=i-...` and `AIC_ELASTIC_IP=eipalloc-...` to redeploy to an existing instance. All generated credentials are saved to `~/.ai-chat-deploy.env`.
+
+---
+
 ### Option A — a single VM with Docker Compose and automatic HTTPS
 
 Good for most installs up to a few thousand concurrent users.
