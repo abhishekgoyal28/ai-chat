@@ -1,0 +1,11 @@
+# One public address for everything: the WebSocket under /socket.io, every
+# other path (APIs, dashboard) to chat-app. With a real domain in
+# SITE_ADDRESS, Caddy obtains and renews the TLS certificate automatically.
+{$SITE_ADDRESS::80} {
+	encode gzip
+
+	@socket path /socket.io /socket.io/*
+	reverse_proxy @socket chat-socket:3001
+
+	reverse_proxy chat-app:3000
+}

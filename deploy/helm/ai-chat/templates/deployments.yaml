@@ -1,0 +1,5 @@
+{{ include "ai-chat.deployment" (dict "root" $ "component" "chat-app" "spec" .Values.chatApp "port" 3000) }}
+---
+{{ include "ai-chat.deployment" (dict "root" $ "component" "chat-socket" "spec" .Values.chatSocket "port" 3001) }}
+---
+{{ include "ai-chat.deployment" (dict "root" $ "component" "chat-expert" "spec" .Values.chatExpert "port" 3002) }}

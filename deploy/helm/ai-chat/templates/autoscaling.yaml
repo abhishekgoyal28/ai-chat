@@ -1,0 +1,39 @@
+{{- range $component, $spec := dict "chat-app" .Values.chatApp "chat-socket" .Values.chatSocket "chat-expert" .Values.chatExpert }}
+{{- if $spec.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "ai-chat.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "ai-chat.labels" $ | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "ai-chat.fullname" $ }}-{{ $component }}
+  minReplicas: {{ $spec.autoscaling.minReplicas }}
+  maxReplicas: {{ $spec.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: {{ $spec.autoscaling.targetCPU }} }
+{{- end }}
+{{- end }}
+{{- if .Values.podDisruptionBudget.enabled }}
+{{- range $component := list "chat-app" "chat-socket" "chat-expert" }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ai-chat.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "ai-chat.labels" $ | nindent 4 }}
+spec:
+  minAvailable: {{ $.Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "ai-chat.selector" (dict "root" $ "component" $component) | nindent 6 }}
+{{- end }}
+{{- end }}

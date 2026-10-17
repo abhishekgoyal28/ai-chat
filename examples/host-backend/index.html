@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ai-chat example widget</title>
+    <style>
+      :root { --bg: #f6f7f9; --surface: #fff; --ink: #111827; --muted: #6b7280; --line: #e5e7eb; --accent: #4f46e5; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0e1117; --surface: #161b22; --ink: #e6e9ee; --muted: #9aa3b0; --line: #2a313c; --accent: #8b87ff; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); display: grid; place-items: center; min-height: 100vh; padding: 16px; }
+      .chat { width: min(440px, 100%); height: min(680px, calc(100vh - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
+      header { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
+      header img { width: 32px; height: 32px; border-radius: 50%; background: var(--line); }
+      header small { display: block; color: var(--muted); }
+      #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+      .row { display: flex; } .row.user { justify-content: flex-end; } .row.system { justify-content: center; color: var(--muted); font-size: 13px; }
+      .bubble { max-width: 80%; padding: 8px 12px; border-radius: 14px; background: var(--bg); white-space: pre-wrap; }
+      .row.user .bubble { background: var(--accent); color: #fff; }
+      .status { font-size: 11px; color: var(--muted); text-align: right; }
+      .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 8px; }
+      .chips button { border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+      #typing { color: var(--muted); font-size: 13px; padding: 0 16px 6px; min-height: 20px; }
+      form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+      input { flex: 1; font: inherit; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+      button.send { font: inherit; border: 0; background: var(--accent); color: #fff; border-radius: 10px; padding: 0 16px; cursor: pointer; }
+      .end { margin-left: auto; font-size: 13px; background: none; border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="chat">
+      <header>
+        <img id="avatar" alt="" />
+        <div><strong id="agent-name">Connecting…</strong><small id="tagline"></small></div>
+        <button class="end" id="end">End chat</button>
+      </header>
+      <div id="messages"></div>
+      <div id="typing"></div>
+      <div class="chips" id="chips"></div>
+      <form id="composer">
+        <input id="input" placeholder="Type a message…" autocomplete="off" />
+        <button class="send">Send</button>
+      </form>
+    </div>
+
+    <script src="/ai-chat.js"></script>
+    <script>
+      // 1. Ask OUR backend for a session — it holds the API key, the browser never does.
+      const getSession = async () => (await fetch(`/api/chat/session${location.search}`, { method: 'POST' })).json();
+
+      const $ = (id) => document.getElementById(id);
+      const render = (messages) => {
+        $('messages').replaceChildren(
+          ...messages.map((message) => {
+            const row = document.createElement('div');
+            row.className = `row ${message.senderType === 'USER' ? 'user' : message.senderType === 'SYSTEM' ? 'system' : ''}`;
+            const wrap = document.createElement('div');
+            const bubble = document.createElement('div');
+            bubble.className = message.senderType === 'SYSTEM' ? '' : 'bubble';
+            bubble.textContent = message.body;
+            wrap.append(bubble);
+            if (message.senderType === 'USER') {
+              const status = document.createElement('div');
+              status.className = 'status';
+              status.textContent = message.status.toLowerCase();
+              wrap.append(status);
+            }
+            row.append(wrap);
+            return row;
+          }),
+        );
+        $('messages').scrollTop = $('messages').scrollHeight;
+      };
+
+      (async () => {
+        const session = await getSession();
+        // 2. Hand the token to the SDK. refreshToken asks our backend again when it expires.
+        const chat = new AiChat.ChatClient({
+          apiUrl: session.apiUrl,
+          socketUrl: session.socketUrl,
+          token: session.token,
+          refreshToken: async () => (await getSession()).token,
+        });
+        chat.on('messages', render);
+        chat.on('typing', (typing) => ($('typing').textContent = typing ? 'typing…' : ''));
+        chat.on('suggestions', (chips) =>
+          $('chips').replaceChildren(
+            ...chips.map((chip) => {
+              const button = document.createElement('button');
+              button.textContent = chip.text;
+              button.onclick = () => { chat.send(chip.text); chat.flush(); };
+              return button;
+            }),
+          ),
+        );
+        chat.on('turnFailed', (event) => {
+          if (event.retryable && confirm('That message failed. Retry?')) chat.retry(event.turnId);
+        });
+        chat.on('sessionEnded', () => { $('input').disabled = true; $('input').placeholder = 'This conversation has ended'; });
+
+        // 3. Load the conversation and go live.
+        const view = await chat.connect();
+        $('agent-name').textContent = view.agentProfile.name;
+        $('tagline').textContent = view.agentProfile.tagline ?? '';
+        if (view.agentProfile.avatarUrl) $('avatar').src = view.agentProfile.avatarUrl;
+        if (!view.acceptingMessages) $('input').disabled = true;
+
+        $('input').addEventListener('input', () => chat.notifyTyping());
+        $('composer').addEventListener('submit', (event) => {
+          event.preventDefault();
+          const text = $('input').value.trim();
+          if (!text) return;
+          chat.send(text);
+          $('input').value = '';
+        });
+        $('end').onclick = () => chat.end();
+      })().catch((error) => ($('agent-name').textContent = `Error: ${error.message}`));
+    </script>
+  </body>
+</html>

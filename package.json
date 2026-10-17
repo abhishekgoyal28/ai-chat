@@ -1,0 +1,28 @@
+{
+  "name": "ai-chat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, self-hostable AI chat platform: real-time agent conversations over WebSockets, a durable queue pipeline and an admin dashboard.",
+  "license": "Apache-2.0",
+  "workspaces": [
+    "server",
+    "sdk/js",
+    "dashboard"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "npm run build -w sdk/js && npm run build -w server && npm run build -w dashboard",
+    "build:server": "npm run build -w server",
+    "build:dashboard": "npm run build -w sdk/js && npm run build -w dashboard",
+    "test": "npm test -w server && npm test -w sdk/js",
+    "lint": "npm run lint -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w sdk/js && npm run typecheck -w dashboard",
+    "migrate": "npm run migrate -w server",
+    "dev:app": "npm run dev:app -w server",
+    "dev:socket": "npm run dev:socket -w server",
+    "dev:expert": "npm run dev:expert -w server",
+    "dev:dashboard": "npm run dev -w dashboard"
+  }
+}

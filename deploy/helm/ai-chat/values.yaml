@@ -1,0 +1,87 @@
+# Image built from the repository Dockerfile (one image, three services).
+image:
+  repository: ghcr.io/your-org/ai-chat
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# The public URL of the install. The ingress serves everything on this host:
+# /socket.io → chat-socket, everything else (APIs, /admin dashboard) → chat-app.
+publicUrl: https://chat.example.com
+
+ingress:
+  enabled: true
+  className: nginx
+  host: chat.example.com
+  annotations:
+    # WebSocket-friendly timeouts for ingress-nginx. For the AWS Load Balancer
+    # Controller use alb.ingress.kubernetes.io/* equivalents instead.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+  tls:
+    enabled: true
+    # Created by cert-manager or by you: kubectl create secret tls ...
+    secretName: ai-chat-tls
+
+# Non-secret settings, rendered into a ConfigMap. See .env.example for all keys.
+config:
+  LOG_LEVEL: info
+  QUEUE_DRIVER: redis
+  RUN_MIGRATIONS: "false"     # the migration Job runs them before each release
+  CORS_ORIGINS: ""
+  SESSION_TOKEN_TTL_SEC: "3600"
+  GENERATION_TIMEOUT_MS: "90000"
+  LLM_TIMEOUT_MS: "30000"
+  EXPERT_CONCURRENCY: "10"
+
+# Secrets. Either let the chart create the Secret from these values, or set
+# existingSecret to a Secret you manage (same keys) and leave these empty.
+existingSecret: ""
+secrets:
+  DATABASE_URL: ""            # mysql://user:password@host:3306/aichat
+  REDIS_URL: ""               # redis://host:6379/0
+  AUTH_SECRET: ""             # openssl rand -base64 48
+  ENCRYPTION_KEY: ""          # openssl rand -base64 32
+  ADMIN_EMAIL: ""
+  ADMIN_PASSWORD: ""
+
+migrations:
+  enabled: true
+
+chatApp:
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { memory: 768Mi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 70 }
+
+chatSocket:
+  replicas: 2
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 70 }
+
+chatExpert:
+  replicas: 2
+  resources:
+    requests: { cpu: 200m, memory: 384Mi }
+    limits: { memory: 768Mi }
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 10, targetCPU: 70 }
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+serviceAccount:
+  create: true
+  # e.g. eks.amazonaws.com/role-arn for SQS access through IRSA
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/path: /metrics
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: aichat
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/aichat
+      REDIS_URL: redis://127.0.0.1:6379/0
+      AUTH_SECRET: ci-only-secret-ci-only-secret-ci-only-secret
+      ENCRYPTION_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: ci-admin-password
+      PUBLIC_APP_URL: http://localhost:3000
+      PUBLIC_SOCKET_URL: http://localhost:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w sdk/js
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run test:integration -w server
+      - run: npm run build -w server && npm run build -w dashboard
+      - name: Start services
+        working-directory: server
+        run: |
+          node dist/chat-app/main.js > app.log 2>&1 &
+          node dist/chat-socket/main.js > socket.log 2>&1 &
+          node dist/chat-expert/main.js > expert.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf localhost:3000/readyz && curl -sf localhost:3001/readyz && curl -sf localhost:3002/readyz && break; sleep 1; done
+      - name: End-to-end smoke test
+        working-directory: server
+        run: AIC_URL=http://localhost:3000 AIC_SOCKET_URL=http://localhost:3001 node dist/tools/smoke-test.js
+      - name: Service logs
+        if: failure()
+        working-directory: server
+        run: tail -n 200 app.log socket.log expert.log
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint deploy/helm/ai-chat --set secrets.DATABASE_URL=x,secrets.REDIS_URL=x,secrets.AUTH_SECRET=x,secrets.ENCRYPTION_KEY=x
+      - run: helm template ai-chat deploy/helm/ai-chat --set secrets.DATABASE_URL=x,secrets.REDIS_URL=x,secrets.AUTH_SECRET=x,secrets.ENCRYPTION_KEY=x > /dev/null
+      - run: helm template ai-chat deploy/helm/ai-chat --set existingSecret=ai-chat-secrets > /dev/null
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: ai-chat:ci

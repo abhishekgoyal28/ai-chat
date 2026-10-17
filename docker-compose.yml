@@ -1,0 +1,103 @@
+# ai-chat on a single machine: MySQL, Redis, the three services and a Caddy
+# reverse proxy on one public address.
+#
+#   cp .env.example .env    # then fill in the secrets (see README)
+#   docker compose up -d --build
+#   open http://localhost:8080/admin
+#
+# Add `--profile ollama` to also run a local Ollama for fully offline models.
+
+x-service-env: &service-env
+  env_file: .env
+  environment:
+    DATABASE_URL: mysql://aichat:${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}@mysql:3306/aichat
+    REDIS_URL: redis://redis:6379/0
+  restart: unless-stopped
+
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_DATABASE: aichat
+      MYSQL_USER: aichat
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uaichat -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  chat-app:
+    <<: *service-env
+    build: .
+    image: ${AI_CHAT_IMAGE:-ai-chat:local}
+    command: ["node", "dist/chat-app/main.js"]
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/readyz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  chat-socket:
+    <<: *service-env
+    build: .
+    image: ${AI_CHAT_IMAGE:-ai-chat:local}
+    command: ["node", "dist/chat-socket/main.js"]
+    depends_on:
+      chat-app: { condition: service_healthy }
+
+  chat-expert:
+    <<: *service-env
+    build: .
+    image: ${AI_CHAT_IMAGE:-ai-chat:local}
+    command: ["node", "dist/chat-expert/main.js"]
+    depends_on:
+      chat-app: { condition: service_healthy }
+
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+      - "${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./deploy/compose/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      chat-app: { condition: service_healthy }
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  redis-data:
+  caddy-data:
+  ollama-data:

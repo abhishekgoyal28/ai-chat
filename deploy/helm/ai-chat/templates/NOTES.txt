@@ -1,0 +1,13 @@
+ai-chat {{ .Chart.AppVersion }} is deploying.
+
+  Dashboard:  {{ .Values.publicUrl }}/admin
+  Host API:   {{ .Values.publicUrl }}/v1
+  WebSocket:  {{ .Values.publicUrl }}/socket.io
+
+Watch the rollout:
+  kubectl rollout status deploy/{{ include "ai-chat.fullname" . }}-chat-app -n {{ .Release.Namespace }}
+
+Then sign in with ADMIN_EMAIL / ADMIN_PASSWORD and follow "Getting started".
+Verify the whole pipeline with the bundled smoke test:
+  kubectl exec -n {{ .Release.Namespace }} deploy/{{ include "ai-chat.fullname" . }}-chat-app -- \
+    env AIC_URL={{ .Values.publicUrl }} ADMIN_EMAIL=<email> ADMIN_PASSWORD=<password> node dist/tools/smoke-test.js
