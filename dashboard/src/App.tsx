@@ -75,6 +75,9 @@ export const App = () => {
               Sign out
             </a>
           </div>
+          <div className="row" style={{ marginTop: 8 }}>
+            <a href="/">← Demo home</a>
+          </div>
           {meta && <div style={{ marginTop: 8 }}>v{meta.version}</div>}
         </div>
       </aside>

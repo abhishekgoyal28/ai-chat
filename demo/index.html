@@ -262,12 +262,6 @@
       gap: 4px;
     }
 
-    .chat-brand a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
     .chat-messages {
       flex: 1;
       overflow-y: auto;
@@ -482,10 +476,9 @@
       <div class="chat-name">Ava</div>
       <div class="chat-sub" id="chat-sub">ai-chat Platform Guide</div>
     </div>
+    <button class="sign-out" id="home-btn" type="button">← Home</button>
     <button class="sign-out" id="sign-out" type="button">Sign out</button>
-    <div class="chat-brand">
-      Powered by <a href="https://github.com/ai-chat/ai-chat" target="_blank">ai-chat</a>
-    </div>
+    <div class="chat-brand">Powered by ai-chat</div>
   </div>
 
   <div class="chat-messages" id="chat-messages"></div>
@@ -540,12 +533,21 @@
   }
 
   document.body.classList.remove('checking');
-  document.getElementById('landing').style.display = 'none';
-  document.getElementById('chat-view').classList.add('active');
+  chatActive = true;
+  showChat();
   document.getElementById('connecting-overlay').style.display = 'flex';
   if (session.userName) {
     document.getElementById('chat-sub').textContent = `Chatting as ${session.userName}`;
   }
+  document.getElementById('home-btn').addEventListener('click', showHome);
+  // On the home screen the "Chat with Ava" button resumes the live chat instead
+  // of starting a new Google sign-in.
+  document.getElementById('sign-in-btn').addEventListener('click', (event) => {
+    if (chatActive) {
+      event.preventDefault();
+      showChat();
+    }
+  });
   document.getElementById('sign-out').addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     window.location.replace('/');
@@ -679,6 +681,21 @@ async function fetchSession() {
 
 function revealLanding() {
   document.body.classList.remove('checking');
+}
+
+// Once a chat session is live, the landing page becomes an in-page "home" the
+// visitor can return to (to reach the dashboard or architecture) without
+// signing out — so Home/Chat just toggle the two views.
+let chatActive = false;
+
+function showChat() {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('chat-view').classList.add('active');
+}
+
+function showHome() {
+  document.getElementById('chat-view').classList.remove('active');
+  document.getElementById('landing').style.display = '';
 }
 
 function showError(msg) {
