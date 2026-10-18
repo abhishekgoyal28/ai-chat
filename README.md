@@ -432,6 +432,8 @@ Every service reads the same variables; each one only requires what it uses. Def
 | `AUTH_SECRET` | — (required) | app, socket | ≥ 32 chars. Signs session tokens and dashboard sign-ins. Rotating it signs everyone out. |
 | `ENCRYPTION_KEY` | — (required) | app, expert | 32 bytes, base64 (`openssl rand -base64 32`). Encrypts stored credentials. Never change it without re-entering credentials. |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | — | app | Creates the first dashboard admin when none exists. Password ≥ 10 chars. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | — | app | Enables "Continue with Google" on the dashboard. New Google sign-ins become GUEST members, who change only what they created. Redirect URI: `<DASHBOARD_PUBLIC_URL>/admin/api/auth/google/callback`. |
+| `DASHBOARD_PUBLIC_URL` | `PUBLIC_APP_URL` | app | Public base URL the dashboard is opened from, when a proxy on another host serves `/admin`. Used for the Google sign-in redirect. |
 | `PUBLIC_APP_URL` | `http://localhost:3000` | app | Public base URL, returned to hosts as `apiUrl`. |
 | `PUBLIC_SOCKET_URL` | `PUBLIC_APP_URL` | app | Public WebSocket origin when not path-routed on the app URL. |
 | `CORS_ORIGINS` | any | app, socket | Comma-separated browser origins allowed for the client API and socket. |

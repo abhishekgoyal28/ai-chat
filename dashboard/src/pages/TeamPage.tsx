@@ -82,6 +82,7 @@ export const TeamPage = () => {
                     <select value={member.role} onChange={(event) => void update(member, { role: event.target.value as Role })} style={{ width: 120 }}>
                       <option value="ADMIN">Admin</option>
                       <option value="EDITOR">Editor</option>
+                      <option value="GUEST">Guest</option>
                     </select>
                   </td>
                   <td>

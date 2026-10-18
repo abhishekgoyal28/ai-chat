@@ -142,6 +142,10 @@ export class Persona {
   @Column({ type: 'mediumtext' })
   prompt: string;
 
+  /** The admin_users id that created it; null for rows that predate ownership. */
+  @Column({ type: 'bigint', nullable: true })
+  createdById: string | null;
+
   @Column({ type: 'int', default: 1 })
   revision: number;
 
@@ -170,6 +174,9 @@ export class Prompt {
 
   @Column({ type: 'mediumtext' })
   text: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  createdById: string | null;
 
   @Column({ type: 'int', default: 1 })
   revision: number;
@@ -216,6 +223,9 @@ export class Agent {
   @Column({ type: 'json' })
   settings: AgentSettings;
 
+  @Column({ type: 'bigint', nullable: true })
+  createdById: string | null;
+
   @Column({ type: 'int', default: 1 })
   revision: number;
 
@@ -236,6 +246,9 @@ export class KnowledgeBase {
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   description: string | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  createdById: string | null;
 
   @Column({ type: 'int', default: 1 })
   revision: number;

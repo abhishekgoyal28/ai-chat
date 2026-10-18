@@ -104,6 +104,7 @@ export class AdminPlatformController {
 
   @Post('conversations/:id/end')
   @HttpCode(HttpStatus.OK)
+  @RequireRole(AdminRole.ADMIN, AdminRole.EDITOR)
   async endConversation(@Param('id', id) conversationId: string): Promise<{ ending: true }> {
     await this.conversations.end(conversationId);
     return { ending: true };

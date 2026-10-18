@@ -6,6 +6,7 @@ import { ConfigResourceType, PromptKind } from '../../../shared/domain/enums';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors/app-errors';
 import { AgentRuntimeService } from '../../agents/agent-runtime.service';
 import { AdminPrincipal } from '../../auth/admin-auth.service';
+import { assertCanModify } from '../../auth/resource-ownership';
 import { ConversationRepository } from '../../conversation/repositories/conversation.repository';
 import { agentInputSchema, agentUpdateSchema } from '../admin.schemas';
 import { AgentAdminRepository, KnowledgeRepository, PersonaRepository, PromptRepository, ProviderRepository } from '../repositories/config.repositories';
@@ -24,6 +25,7 @@ export interface AgentView {
   domainPromptId: string | null;
   modelRoutes: Agent['modelRoutes'];
   settings: Agent['settings'];
+  createdById: string | null;
   revision: number;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +41,7 @@ const toView = (agent: Agent): AgentView => ({
   domainPromptId: agent.domainPromptId,
   modelRoutes: agent.modelRoutes ?? [],
   settings: readStoredAgentSettings(agent.settings),
+  createdById: agent.createdById,
   revision: agent.revision,
   createdAt: agent.createdAt.toISOString(),
   updatedAt: agent.updatedAt.toISOString(),
@@ -76,13 +79,14 @@ export class AgentAdminService {
       domainPromptId: input.domainPromptId,
       modelRoutes: input.modelRoutes,
       settings: input.settings,
+      createdById: by.id,
     });
     await this.afterWrite(agent, by);
     return toView(agent);
   }
 
   async update(id: string, input: AgentUpdate, by: AdminPrincipal): Promise<AgentView> {
-    await this.require(id);
+    assertCanModify(by, await this.require(id));
     await this.validateReferences(input);
     await this.agents.update(id, input.expectedRevision, {
       slug: input.slug,
@@ -100,8 +104,8 @@ export class AgentAdminService {
   }
 
   /** Only an agent with no conversations can be deleted; otherwise disable it. */
-  async delete(id: string): Promise<void> {
-    await this.require(id);
+  async delete(id: string, by: AdminPrincipal): Promise<void> {
+    assertCanModify(by, await this.require(id));
     if ((await this.conversations.list({ agentId: id, limit: 1 })).rows.length > 0) {
       throw new ConflictError('this agent has conversations — disable it instead of deleting it');
     }

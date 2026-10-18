@@ -3,10 +3,11 @@ import { MysqlConnectionOptions } from 'typeorm/driver/mysql/MysqlConnectionOpti
 import { config } from '../config/config';
 import { ALL_ENTITIES } from './entities';
 import { InitialSchema1760000000000 } from './migrations/1760000000000-initial-schema';
+import { ConfigOwnership1761000000000 } from './migrations/1761000000000-config-ownership';
 import { SnakeNamingStrategy } from './snake-naming.strategy';
 
 /** Every migration, oldest first. Append new ones here. */
-export const MIGRATIONS = [InitialSchema1760000000000];
+export const MIGRATIONS = [InitialSchema1760000000000, ConfigOwnership1761000000000];
 
 /**
  * Connection options shared by every process that touches MySQL. `timezone:

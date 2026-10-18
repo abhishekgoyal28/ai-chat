@@ -36,6 +36,7 @@ import { AgentRuntimeService } from './agents/agent-runtime.service';
 import { AdminAuthGuard } from './auth/admin-auth.guard';
 import { AdminAuthService } from './auth/admin-auth.service';
 import { AdminUserRepository } from './auth/admin-user.repository';
+import { GoogleOAuthClient } from './auth/google-oauth.client';
 import { ApiKeyRepository } from './auth/api-key.repository';
 import { ClientSessionGuard } from './auth/client-session.guard';
 import { HostApiKeyGuard } from './auth/host-api-key.guard';
@@ -101,6 +102,7 @@ const integrationServices = [PlatformSettingsService, WebhookService, PushServic
 
 const adminServices = [
   AdminAuthService,
+  GoogleOAuthClient,
   RevisionRecorder,
   PreviewService,
   AgentAdminService,

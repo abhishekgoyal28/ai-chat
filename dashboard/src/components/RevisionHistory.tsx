@@ -13,12 +13,14 @@ export const RevisionHistory = ({
   restorePath,
   currentRevision,
   onRestored,
+  canRestore = true,
 }: {
   type: 'AGENT' | 'PERSONA' | 'PROMPT';
   resourceId: string;
   restorePath: string;
   currentRevision: number;
   onRestored: () => void;
+  canRestore?: boolean;
 }) => {
   const toast = useToast();
   const [open, setOpen] = useState<number | null>(null);
@@ -69,7 +71,7 @@ export const RevisionHistory = ({
                   <button className="small" onClick={() => setOpen(open === revision.revision ? null : revision.revision)}>
                     {open === revision.revision ? 'Hide' : 'View'}
                   </button>
-                  {revision.revision !== currentRevision && (
+                  {canRestore && revision.revision !== currentRevision && (
                     <button className="small" onClick={() => void restore(revision.revision)}>
                       Restore
                     </button>

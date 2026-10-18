@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RevisionHistory } from '../components/RevisionHistory';
-import { confirmAction, ErrorAlert, Field, fieldError, Loading, Modal, PageHeader, useToast } from '../components/ui';
+import { confirmAction, ErrorAlert, Field, fieldError, Loading, Modal, OwnedBadge, PageHeader, ReadOnlyNotice, useToast } from '../components/ui';
 import { api, Persona } from '../lib/api';
+import { useSession } from '../lib/session';
 
 type PersonaForm = Pick<Persona, 'name' | 'displayName' | 'avatarUrl' | 'tagline' | 'prompt'>;
 
@@ -11,6 +12,7 @@ const blank: PersonaForm = { name: '', displayName: '', avatarUrl: null, tagline
 export const PersonasPage = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { isGuest, canModify } = useSession();
   const personas = useQuery({ queryKey: ['personas'], queryFn: () => api.get<Persona[]>('/personas') });
   const [editing, setEditing] = useState<Persona | 'new' | null>(null);
   const [form, setForm] = useState<PersonaForm>(blank);
@@ -52,6 +54,8 @@ export const PersonasPage = () => {
     }
   };
 
+  const editable = editing === 'new' || (editing !== null && canModify(editing));
+
   return (
     <>
       <PageHeader
@@ -76,7 +80,7 @@ export const PersonasPage = () => {
               {personas.data?.map((persona) => (
                 <tr key={persona.id} className="clickable" onClick={() => open(persona)}>
                   <td>
-                    <strong>{persona.name}</strong>
+                    <strong>{persona.name}</strong> <OwnedBadge show={isGuest && canModify(persona)} />
                   </td>
                   <td>
                     <div className="row">
@@ -90,9 +94,11 @@ export const PersonasPage = () => {
                     {persona.prompt.length > 140 ? '…' : ''}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="small danger" onClick={(event) => { event.stopPropagation(); void remove(persona); }}>
-                      Delete
-                    </button>
+                    {canModify(persona) && (
+                      <button className="small danger" onClick={(event) => { event.stopPropagation(); void remove(persona); }}>
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -103,18 +109,21 @@ export const PersonasPage = () => {
 
       {editing && (
         <Modal
-          title={editing === 'new' ? 'New persona' : `Edit ${editing.name}`}
+          title={editing === 'new' ? 'New persona' : editable ? `Edit ${editing.name}` : editing.name}
           onClose={() => setEditing(null)}
           actions={
             <>
               {editing !== 'new' && <button onClick={() => setShowHistory(!showHistory)}>{showHistory ? 'Hide history' : 'History'}</button>}
-              <button onClick={() => setEditing(null)}>Cancel</button>
-              <button className="primary" onClick={() => void save()}>
-                Save
-              </button>
+              <button onClick={() => setEditing(null)}>{editable ? 'Cancel' : 'Close'}</button>
+              {editable && (
+                <button className="primary" onClick={() => void save()}>
+                  Save
+                </button>
+              )}
             </>
           }
         >
+          {!editable && <ReadOnlyNotice what="persona" />}
           <ErrorAlert error={error} />
           <div className="grid-2">
             <Field label="Internal name" error={fieldError(error, 'name')}>
@@ -141,6 +150,7 @@ export const PersonasPage = () => {
               resourceId={editing.id}
               restorePath={`/personas/${editing.id}/restore`}
               currentRevision={editing.revision}
+              canRestore={editable}
               onRestored={() => {
                 void queryClient.invalidateQueries({ queryKey: ['personas'] });
                 setEditing(null);

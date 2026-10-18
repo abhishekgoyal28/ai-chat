@@ -1,12 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { RevisionHistory } from '../components/RevisionHistory';
-import { Card, confirmAction, ErrorAlert, Field, fieldError, formatDate, Loading, Modal, PageHeader, useToast } from '../components/ui';
+import { Card, confirmAction, ErrorAlert, Field, fieldError, formatDate, Loading, Modal, OwnedBadge, PageHeader, ReadOnlyNotice, useToast } from '../components/ui';
 import { api, Prompt } from '../lib/api';
+import { useSession } from '../lib/session';
 
 const MasterPromptCard = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { canModify } = useSession();
   const master = useQuery({ queryKey: ['master-prompt'], queryFn: () => api.get<Prompt>('/prompts/master') });
   const [text, setText] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -21,6 +23,8 @@ const MasterPromptCard = () => {
   if (!master.data) {
     return master.isLoading ? <Loading /> : <ErrorAlert error={master.error} />;
   }
+
+  const editable = canModify(master.data);
 
   const save = async () => {
     setError(null);
@@ -47,17 +51,22 @@ const MasterPromptCard = () => {
           <button className="small" onClick={() => setShowHistory(!showHistory)}>
             {showHistory ? 'Hide history' : 'History'}
           </button>
-          <button className="small" onClick={() => master.data.defaultText && setText(master.data.defaultText)}>
-            Load default
-          </button>
-          <button className="small primary" disabled={text === master.data.text} onClick={() => void save()}>
-            Save
-          </button>
+          {editable && (
+            <>
+              <button className="small" onClick={() => master.data.defaultText && setText(master.data.defaultText)}>
+                Load default
+              </button>
+              <button className="small primary" disabled={text === master.data.text} onClick={() => void save()}>
+                Save
+              </button>
+            </>
+          )}
         </div>
       }
     >
+      {!editable && <div className="alert warn">Read-only: the master prompt is shared by every agent, so only admins and editors can change it.</div>}
       <ErrorAlert error={error} />
-      <textarea className="code" rows={18} value={text} onChange={(event) => setText(event.target.value)} />
+      <textarea className="code" rows={18} value={text} readOnly={!editable} onChange={(event) => setText(event.target.value)} />
       {showHistory && (
         <div style={{ marginTop: 14 }}>
           <RevisionHistory
@@ -65,6 +74,7 @@ const MasterPromptCard = () => {
             resourceId={master.data.id}
             restorePath={`/prompts/${master.data.id}/restore`}
             currentRevision={master.data.revision}
+            canRestore={editable}
             onRestored={() => void queryClient.invalidateQueries({ queryKey: ['master-prompt'] })}
           />
         </div>
@@ -78,6 +88,7 @@ type PromptForm = Pick<Prompt, 'name' | 'description' | 'text'>;
 export const PromptsPage = () => {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { isGuest, canModify } = useSession();
   const prompts = useQuery({ queryKey: ['prompts'], queryFn: () => api.get<Prompt[]>('/prompts') });
   const [editing, setEditing] = useState<Prompt | 'new' | null>(null);
   const [form, setForm] = useState<PromptForm>({ name: '', description: null, text: '' });
@@ -119,6 +130,8 @@ export const PromptsPage = () => {
     }
   };
 
+  const editable = editing === 'new' || (editing !== null && canModify(editing));
+
   return (
     <>
       <PageHeader title="Prompts" description="How the system prompt is assembled: master → domain → persona → language → knowledge → host context → user. Static parts come first so providers can cache them." />
@@ -136,15 +149,17 @@ export const PromptsPage = () => {
               {prompts.data?.map((prompt) => (
                 <tr key={prompt.id} className="clickable" onClick={() => open(prompt)}>
                   <td>
-                    <strong>{prompt.name}</strong>
+                    <strong>{prompt.name}</strong> <OwnedBadge show={isGuest && canModify(prompt)} />
                     {prompt.description && <div className="muted">{prompt.description}</div>}
                   </td>
                   <td className="muted">{prompt.text.length.toLocaleString()} chars</td>
                   <td className="muted">{formatDate(prompt.updatedAt)}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="small danger" onClick={(event) => { event.stopPropagation(); void remove(prompt); }}>
-                      Delete
-                    </button>
+                    {canModify(prompt) && (
+                      <button className="small danger" onClick={(event) => { event.stopPropagation(); void remove(prompt); }}>
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -155,18 +170,21 @@ export const PromptsPage = () => {
 
       {editing && (
         <Modal
-          title={editing === 'new' ? 'New domain prompt' : `Edit ${editing.name}`}
+          title={editing === 'new' ? 'New domain prompt' : editable ? `Edit ${editing.name}` : editing.name}
           onClose={() => setEditing(null)}
           actions={
             <>
               {editing !== 'new' && <button onClick={() => setShowHistory(!showHistory)}>{showHistory ? 'Hide history' : 'History'}</button>}
-              <button onClick={() => setEditing(null)}>Cancel</button>
-              <button className="primary" onClick={() => void save()}>
-                Save
-              </button>
+              <button onClick={() => setEditing(null)}>{editable ? 'Cancel' : 'Close'}</button>
+              {editable && (
+                <button className="primary" onClick={() => void save()}>
+                  Save
+                </button>
+              )}
             </>
           }
         >
+          {!editable && <ReadOnlyNotice what="domain prompt" />}
           <ErrorAlert error={error} />
           <Field label="Name" error={fieldError(error, 'name')}>
             <input type="text" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
@@ -183,6 +201,7 @@ export const PromptsPage = () => {
               resourceId={editing.id}
               restorePath={`/prompts/${editing.id}/restore`}
               currentRevision={editing.revision}
+              canRestore={editable}
               onRestored={() => {
                 void queryClient.invalidateQueries({ queryKey: ['prompts'] });
                 setEditing(null);

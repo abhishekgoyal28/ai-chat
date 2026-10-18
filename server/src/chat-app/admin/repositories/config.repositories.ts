@@ -109,7 +109,7 @@ export class PersonaRepository {
     return this.repo.findOne({ where: { id } });
   }
 
-  create(values: Pick<Persona, 'name' | 'displayName' | 'avatarUrl' | 'tagline' | 'prompt'>): Promise<Persona> {
+  create(values: Pick<Persona, 'name' | 'displayName' | 'avatarUrl' | 'tagline' | 'prompt' | 'createdById'>): Promise<Persona> {
     return this.repo.save(this.repo.create({ ...values, revision: 1 }));
   }
 
@@ -138,7 +138,7 @@ export class PromptRepository {
     return this.repo.findOne({ where: { kind: PromptKind.MASTER }, order: { id: 'DESC' } });
   }
 
-  create(values: Pick<Prompt, 'kind' | 'name' | 'description' | 'text'>): Promise<Prompt> {
+  create(values: Pick<Prompt, 'kind' | 'name' | 'description' | 'text' | 'createdById'>): Promise<Prompt> {
     return this.repo.save(this.repo.create({ ...values, revision: 1 }));
   }
 
@@ -172,7 +172,7 @@ export class KnowledgeRepository {
     return ids.length === 0 ? Promise.resolve([]) : this.bases.find({ where: { id: In(ids) } });
   }
 
-  createBase(values: Pick<KnowledgeBase, 'name' | 'description'>): Promise<KnowledgeBase> {
+  createBase(values: Pick<KnowledgeBase, 'name' | 'description' | 'createdById'>): Promise<KnowledgeBase> {
     return this.bases.save(this.bases.create({ ...values, revision: 1 }));
   }
 

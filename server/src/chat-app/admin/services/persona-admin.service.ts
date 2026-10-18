@@ -5,6 +5,7 @@ import { ConfigResourceType } from '../../../shared/domain/enums';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors/app-errors';
 import { AgentRuntimeService } from '../../agents/agent-runtime.service';
 import { AdminPrincipal } from '../../auth/admin-auth.service';
+import { assertCanModify } from '../../auth/resource-ownership';
 import { personaInputSchema, personaUpdateSchema } from '../admin.schemas';
 import { AgentAdminRepository, PersonaRepository } from '../repositories/config.repositories';
 import { RevisionRecorder } from './revision-recorder.service';
@@ -43,13 +44,14 @@ export class PersonaAdminService {
       avatarUrl: input.avatarUrl ?? null,
       tagline: input.tagline ?? null,
       prompt: input.prompt,
+      createdById: by.id,
     });
     await this.revisions.record(ConfigResourceType.PERSONA, persona.id, persona.revision, { ...snapshotOf(persona) }, by);
     return persona;
   }
 
   async update(id: string, input: z.infer<typeof personaUpdateSchema>, by: AdminPrincipal): Promise<Persona> {
-    await this.require(id);
+    assertCanModify(by, await this.require(id));
     await this.personas.update(id, input.expectedRevision, {
       name: input.name,
       displayName: input.displayName,
@@ -63,8 +65,8 @@ export class PersonaAdminService {
     return persona;
   }
 
-  async delete(id: string): Promise<void> {
-    await this.require(id);
+  async delete(id: string, by: AdminPrincipal): Promise<void> {
+    assertCanModify(by, await this.require(id));
     if ((await this.agents.countByPersona(id)) > 0) {
       throw new ConflictError('agents still use this persona — point them at another persona first');
     }

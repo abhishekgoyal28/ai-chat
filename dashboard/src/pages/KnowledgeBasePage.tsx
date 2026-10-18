@@ -2,8 +2,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChangeEvent, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { NumberInput } from '../components/inputs';
-import { Card, confirmAction, Empty, ErrorAlert, Field, fieldError, formatDate, formatNumber, Loading, Modal, PageHeader, StatusBadge, useToast } from '../components/ui';
+import { Card, confirmAction, Empty, ErrorAlert, Field, fieldError, formatDate, formatNumber, Loading, Modal, PageHeader, ReadOnlyNotice, StatusBadge, useToast } from '../components/ui';
 import { api, KnowledgeBase, KnowledgeDocument } from '../lib/api';
+import { useSession } from '../lib/session';
 
 interface DocumentForm {
   id?: string;
@@ -21,6 +22,7 @@ export const KnowledgeBasePage = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { canModify } = useSession();
   const base = useQuery({ queryKey: ['knowledge-base', id], queryFn: () => api.get<KnowledgeBase & { documentList: KnowledgeDocument[] }>(`/knowledge-bases/${id}`) });
   const [form, setForm] = useState<DocumentForm | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -28,6 +30,7 @@ export const KnowledgeBasePage = () => {
   if (!base.data) {
     return base.isLoading ? <Loading /> : <ErrorAlert error={base.error} />;
   }
+  const editable = canModify(base.data);
   const refresh = () => Promise.all([queryClient.invalidateQueries({ queryKey: ['knowledge-base', id] }), queryClient.invalidateQueries({ queryKey: ['knowledge-bases'] })]);
 
   const openDocument = async (document: KnowledgeDocument) => {
@@ -100,20 +103,23 @@ export const KnowledgeBasePage = () => {
         title={base.data.name}
         description={`${base.data.documentList.length} documents · ${formatNumber(totalChars)} active characters. Lower position goes into the prompt first.`}
         actions={
-          <>
-            <button className="danger" onClick={() => void removeBase()}>
-              Delete
-            </button>
-            <label className="button">
-              Upload .txt / .md
-              <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" hidden onChange={(event) => void upload(event)} />
-            </label>
-            <button className="primary" onClick={() => { setError(null); setForm({ title: '', content: '', status: 'ACTIVE', position: null }); }}>
-              New document
-            </button>
-          </>
+          editable && (
+            <>
+              <button className="danger" onClick={() => void removeBase()}>
+                Delete
+              </button>
+              <label className="button">
+                Upload .txt / .md
+                <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" hidden onChange={(event) => void upload(event)} />
+              </label>
+              <button className="primary" onClick={() => { setError(null); setForm({ title: '', content: '', status: 'ACTIVE', position: null }); }}>
+                New document
+              </button>
+            </>
+          )
         }
       />
+      {!editable && <ReadOnlyNotice what="knowledge base" />}
       {base.data.documentList.length === 0 ? (
         <Card>
           <Empty title="No documents yet">Paste text or upload a .txt or .md file.</Empty>
@@ -144,9 +150,11 @@ export const KnowledgeBasePage = () => {
                   </td>
                   <td className="muted">{formatDate(document.updatedAt)}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="small danger" onClick={(event) => { event.stopPropagation(); void removeDocument(document); }}>
-                      Delete
-                    </button>
+                    {editable && (
+                      <button className="small danger" onClick={(event) => { event.stopPropagation(); void removeDocument(document); }}>
+                        Delete
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -157,14 +165,16 @@ export const KnowledgeBasePage = () => {
 
       {form && (
         <Modal
-          title={form.id ? 'Edit document' : 'New document'}
+          title={!editable ? 'Document' : form.id ? 'Edit document' : 'New document'}
           onClose={() => setForm(null)}
           actions={
             <>
-              <button onClick={() => setForm(null)}>Cancel</button>
-              <button className="primary" onClick={() => void save()}>
-                Save
-              </button>
+              <button onClick={() => setForm(null)}>{editable ? 'Cancel' : 'Close'}</button>
+              {editable && (
+                <button className="primary" onClick={() => void save()}>
+                  Save
+                </button>
+              )}
             </>
           }
         >

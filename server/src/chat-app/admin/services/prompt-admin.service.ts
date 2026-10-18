@@ -5,6 +5,7 @@ import { DEFAULT_MASTER_PROMPT, DEFAULT_MASTER_PROMPT_NAME } from '../../../shar
 import { ConfigResourceType, PromptKind } from '../../../shared/domain/enums';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors/app-errors';
 import { AdminPrincipal } from '../../auth/admin-auth.service';
+import { assertCanModify } from '../../auth/resource-ownership';
 import { masterPromptUpdateSchema, promptInputSchema, promptUpdateSchema } from '../admin.schemas';
 import { AgentAdminRepository, PromptRepository } from '../repositories/config.repositories';
 import { RevisionRecorder } from './revision-recorder.service';
@@ -31,12 +32,13 @@ export class PromptAdminService {
   async getMaster(): Promise<Prompt & { defaultText: string }> {
     const master =
       (await this.prompts.findMaster()) ??
-      (await this.prompts.create({ kind: PromptKind.MASTER, name: DEFAULT_MASTER_PROMPT_NAME, description: null, text: DEFAULT_MASTER_PROMPT }));
+      (await this.prompts.create({ kind: PromptKind.MASTER, name: DEFAULT_MASTER_PROMPT_NAME, description: null, text: DEFAULT_MASTER_PROMPT, createdById: null }));
     return { ...master, defaultText: DEFAULT_MASTER_PROMPT };
   }
 
   async updateMaster(input: z.infer<typeof masterPromptUpdateSchema>, by: AdminPrincipal): Promise<Prompt & { defaultText: string }> {
     const master = await this.getMaster();
+    assertCanModify(by, master);
     await this.prompts.update(master.id, input.expectedRevision, { text: input.text });
     const updated = await this.require(master.id);
     await this.revisions.record(ConfigResourceType.PROMPT, updated.id, updated.revision, snapshotOf(updated), by);
@@ -52,21 +54,21 @@ export class PromptAdminService {
   }
 
   async createDomain(input: PromptInput, by: AdminPrincipal): Promise<Prompt> {
-    const prompt = await this.prompts.create({ kind: PromptKind.DOMAIN, name: input.name, description: input.description ?? null, text: input.text });
+    const prompt = await this.prompts.create({ kind: PromptKind.DOMAIN, name: input.name, description: input.description ?? null, text: input.text, createdById: by.id });
     await this.revisions.record(ConfigResourceType.PROMPT, prompt.id, prompt.revision, snapshotOf(prompt), by);
     return prompt;
   }
 
   async updateDomain(id: string, input: z.infer<typeof promptUpdateSchema>, by: AdminPrincipal): Promise<Prompt> {
-    await this.requireDomain(id);
+    assertCanModify(by, await this.requireDomain(id));
     await this.prompts.update(id, input.expectedRevision, { name: input.name, description: input.description ?? null, text: input.text });
     const prompt = await this.require(id);
     await this.revisions.record(ConfigResourceType.PROMPT, prompt.id, prompt.revision, snapshotOf(prompt), by);
     return prompt;
   }
 
-  async deleteDomain(id: string): Promise<void> {
-    await this.requireDomain(id);
+  async deleteDomain(id: string, by: AdminPrincipal): Promise<void> {
+    assertCanModify(by, await this.requireDomain(id));
     if ((await this.agents.countByDomainPrompt(id)) > 0) {
       throw new ConflictError('agents still use this domain prompt — detach it from them first');
     }

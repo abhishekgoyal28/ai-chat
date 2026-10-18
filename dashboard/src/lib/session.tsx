@@ -1,16 +1,27 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, ReactNode, useContext, useEffect } from 'react';
-import { api, Me, Meta } from './api';
+import { api, Me, Meta, Owned } from './api';
 
 interface SessionContextValue {
   me: Me | null;
   meta: Meta | undefined;
   loading: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
+  /** Mirrors the server rule: guests change only what they created; admins and editors change anything. */
+  canModify: (resource: Owned) => boolean;
   refresh: () => Promise<void>;
 }
 
-const SessionContext = createContext<SessionContextValue>({ me: null, meta: undefined, loading: true, isAdmin: false, refresh: async () => undefined });
+const SessionContext = createContext<SessionContextValue>({
+  me: null,
+  meta: undefined,
+  loading: true,
+  isAdmin: false,
+  isGuest: false,
+  canModify: () => false,
+  refresh: async () => undefined,
+});
 
 export const SessionProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
@@ -23,11 +34,14 @@ export const SessionProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener('aic:signed-out', onSignedOut);
   }, [queryClient]);
 
+  const isGuest = me.data?.role === 'GUEST';
   const value: SessionContextValue = {
     me: me.data ?? null,
     meta: meta.data,
     loading: me.isLoading,
     isAdmin: me.data?.role === 'ADMIN',
+    isGuest,
+    canModify: (resource) => Boolean(me.data) && (!isGuest || resource.createdById === me.data?.id),
     refresh: async () => {
       await queryClient.invalidateQueries({ queryKey: ['me'] });
     },

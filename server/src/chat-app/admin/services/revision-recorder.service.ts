@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigRevision } from '../../../shared/database/entities';
-import { ConfigResourceType } from '../../../shared/domain/enums';
+import { AdminRole, ConfigResourceType } from '../../../shared/domain/enums';
 import { NotFoundError } from '../../../shared/errors/app-errors';
 import { AdminPrincipal } from '../../auth/admin-auth.service';
 import { ConfigRevisionRepository } from '../repositories/config.repositories';
+
+const ANOTHER_MEMBER = 'another member';
 
 /**
  * Every configuration change writes the full post-change row (secrets
@@ -19,8 +21,13 @@ export class RevisionRecorder {
     return this.revisions.record(type, id, revision, snapshot, by?.email ?? null);
   }
 
-  list(type: ConfigResourceType, id: string): Promise<ConfigRevision[]> {
-    return this.revisions.list(type, id, 100);
+  /** Guests share a workspace with strangers, so they see their own email in history but not anyone else's. */
+  async list(type: ConfigResourceType, id: string, viewer: AdminPrincipal): Promise<ConfigRevision[]> {
+    const rows = await this.revisions.list(type, id, 100);
+    if (viewer.role !== AdminRole.GUEST) {
+      return rows;
+    }
+    return rows.map((row) => (row.changedBy === null || row.changedBy === viewer.email ? row : { ...row, changedBy: ANOTHER_MEMBER }));
   }
 
   async snapshot(type: ConfigResourceType, id: string, revision: number): Promise<Record<string, unknown>> {

@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { api } from './lib/api';
 import { useSession } from './lib/session';
 import { Loading } from './components/ui';
+import { GuideChat } from './components/GuideChat';
 import { AccountPage } from './pages/AccountPage';
 import { AgentEditorPage } from './pages/AgentEditorPage';
 import { AgentsPage } from './pages/AgentsPage';
@@ -18,10 +19,12 @@ import { PromptsPage } from './pages/PromptsPage';
 import { ProvidersPage } from './pages/ProvidersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TeamPage } from './pages/TeamPage';
+import { ArchitecturePage } from './pages/ArchitecturePage';
 
 const nav = [
   { section: 'Build', links: [['/agents', 'Agents'], ['/personas', 'Personas'], ['/prompts', 'Prompts'], ['/knowledge', 'Knowledge']] },
   { section: 'Operate', links: [['/conversations', 'Conversations'], ['/providers', 'LLM providers']] },
+  { section: 'Learn', links: [['/architecture', 'Architecture']] },
   { section: 'Platform', links: [['/api-keys', 'API keys'], ['/team', 'Team'], ['/settings', 'Settings']], adminOnly: true },
 ] as const;
 
@@ -92,9 +95,11 @@ export const App = () => {
           {isAdmin && <Route path="/api-keys" element={<ApiKeysPage />} />}
           {isAdmin && <Route path="/team" element={<TeamPage />} />}
           {isAdmin && <Route path="/settings" element={<SettingsPage />} />}
+          <Route path="/architecture" element={<ArchitecturePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <GuideChat />
     </div>
   );
 };

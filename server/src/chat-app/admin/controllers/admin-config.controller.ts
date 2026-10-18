@@ -28,7 +28,7 @@ import { RevisionRecorder } from '../services/revision-recorder.service';
 const id = zodBody(idParamSchema);
 type Restore = z.infer<typeof revisionRestoreSchema>;
 
-/** Agents, personas, prompts and knowledge — everything EDITOR and ADMIN members may change. */
+/** Agents, personas, prompts and knowledge. GUEST members may change only what they created (see resource-ownership). */
 @Controller('admin/api')
 @UseGuards(AdminAuthGuard)
 export class AdminConfigController {
@@ -68,8 +68,8 @@ export class AdminConfigController {
 
   @Delete('agents/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteAgent(@Param('id', id) agentId: string): Promise<void> {
-    return this.agents.delete(agentId);
+  deleteAgent(@Req() request: AdminRequest, @Param('id', id) agentId: string): Promise<void> {
+    return this.agents.delete(agentId, request.admin);
   }
 
   @Post('agents/:id/restore')
@@ -105,8 +105,8 @@ export class AdminConfigController {
 
   @Delete('personas/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deletePersona(@Param('id', id) personaId: string): Promise<void> {
-    return this.personas.delete(personaId);
+  deletePersona(@Req() request: AdminRequest, @Param('id', id) personaId: string): Promise<void> {
+    return this.personas.delete(personaId, request.admin);
   }
 
   @Post('personas/:id/restore')
@@ -152,8 +152,8 @@ export class AdminConfigController {
 
   @Delete('prompts/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deletePrompt(@Param('id', id) promptId: string): Promise<void> {
-    return this.prompts.deleteDomain(promptId);
+  deletePrompt(@Req() request: AdminRequest, @Param('id', id) promptId: string): Promise<void> {
+    return this.prompts.deleteDomain(promptId, request.admin);
   }
 
   @Post('prompts/:id/restore')
@@ -189,8 +189,8 @@ export class AdminConfigController {
 
   @Delete('knowledge-bases/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteBase(@Param('id', id) baseId: string): Promise<void> {
-    return this.knowledge.deleteBase(baseId);
+  deleteBase(@Req() request: AdminRequest, @Param('id', id) baseId: string): Promise<void> {
+    return this.knowledge.deleteBase(baseId, request.admin);
   }
 
   @Get('knowledge-bases/:id/documents/:documentId')
@@ -219,17 +219,18 @@ export class AdminConfigController {
 
   @Delete('knowledge-bases/:id/documents/:documentId')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteDocument(@Param('id', id) baseId: string, @Param('documentId', id) documentId: string): Promise<void> {
-    return this.knowledge.deleteDocument(baseId, documentId);
+  deleteDocument(@Req() request: AdminRequest, @Param('id', id) baseId: string, @Param('documentId', id) documentId: string): Promise<void> {
+    return this.knowledge.deleteDocument(baseId, documentId, request.admin);
   }
 
   // --- history --------------------------------------------------------------
 
   @Get('revisions/:type/:resourceId')
   listRevisions(
+    @Req() request: AdminRequest,
     @Param('type', zodBody(z.nativeEnum(ConfigResourceType))) type: ConfigResourceType,
     @Param('resourceId', zodBody(z.string().min(1).max(80))) resourceId: string,
   ): Promise<unknown[]> {
-    return this.revisions.list(type, resourceId);
+    return this.revisions.list(type, resourceId, request.admin);
   }
 }

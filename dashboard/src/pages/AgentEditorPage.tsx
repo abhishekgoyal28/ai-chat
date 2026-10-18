@@ -11,7 +11,7 @@ import { PlaygroundTab } from '../components/agent/PlaygroundTab';
 import { TestChatTab } from '../components/agent/TestChatTab';
 import { AgentDraft, TabProps } from '../components/agent/types';
 import { RevisionHistory } from '../components/RevisionHistory';
-import { confirmAction, ErrorAlert, Loading, PageHeader, StatusBadge, Tabs, useToast } from '../components/ui';
+import { confirmAction, ErrorAlert, Loading, PageHeader, ReadOnlyNotice, StatusBadge, Tabs, useToast } from '../components/ui';
 import { Agent, AgentSettings, api, Persona } from '../lib/api';
 import { useSession } from '../lib/session';
 
@@ -46,7 +46,7 @@ export const AgentEditorPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { meta } = useSession();
+  const { meta, canModify } = useSession();
   const [tab, setTab] = useState<TabId>('general');
   const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [saved, setSaved] = useState<string>('');
@@ -131,6 +131,7 @@ export const AgentEditorPage = () => {
     }
   };
 
+  const editable = isNew || (agent.data !== undefined && canModify(agent.data));
   const tabProps: TabProps = { draft, update, updateSettings, error };
   const visibleTabs = TABS.filter((entry) => !entry.savedOnly || !isNew);
 
@@ -148,17 +149,20 @@ export const AgentEditorPage = () => {
         }
         actions={
           <>
-            {!isNew && (
+            {!isNew && editable && (
               <button className="danger" onClick={() => void remove()}>
                 Delete
               </button>
             )}
-            <button className="primary" disabled={saving || (!isNew && !dirty)} onClick={() => void save()}>
-              {saving ? 'Saving…' : isNew ? 'Create agent' : dirty ? 'Save changes' : 'Saved'}
-            </button>
+            {editable && (
+              <button className="primary" disabled={saving || (!isNew && !dirty)} onClick={() => void save()}>
+                {saving ? 'Saving…' : isNew ? 'Create agent' : dirty ? 'Save changes' : 'Saved'}
+              </button>
+            )}
           </>
         }
       />
+      {!editable && <ReadOnlyNotice what="agent" />}
       <ErrorAlert error={error} />
       <Tabs tabs={visibleTabs} active={tab} onChange={setTab} />
       {tab === 'general' && <GeneralTab {...tabProps} />}
@@ -175,6 +179,7 @@ export const AgentEditorPage = () => {
           resourceId={agent.data.id}
           restorePath={`/agents/${agent.data.id}/restore`}
           currentRevision={agent.data.revision}
+          canRestore={editable}
           onRestored={() => void queryClient.invalidateQueries({ queryKey: ['agent', id] })}
         />
       )}

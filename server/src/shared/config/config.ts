@@ -72,6 +72,7 @@ const configSchema = z.object({
 
   PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   PUBLIC_SOCKET_URL: z.string().optional(),
+  DASHBOARD_PUBLIC_URL: z.string().optional(),
   CORS_ORIGINS: listFromEnv(),
   TRUST_PROXY: booleanFromEnv(true),
 
@@ -81,6 +82,8 @@ const configSchema = z.object({
 
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
   RUN_MIGRATIONS: booleanFromEnv(true),
   DASHBOARD_ENABLED: booleanFromEnv(true),
   SESSION_TOKEN_TTL_SEC: integerFromEnv(3600, { min: 60 }),
@@ -149,3 +152,6 @@ export const requireConfig = (service: string, keys: Array<keyof AppConfig>): vo
 
 /** Where clients open the WebSocket. Defaults to the app URL, which suits path-based routing. */
 export const publicSocketUrl = (): string => config.PUBLIC_SOCKET_URL || config.PUBLIC_APP_URL;
+
+/** Where browsers open the dashboard. Differs from the app URL when a proxy on another host serves /admin. */
+export const dashboardPublicUrl = (): string => (config.DASHBOARD_PUBLIC_URL || config.PUBLIC_APP_URL).replace(/\/+$/, '');

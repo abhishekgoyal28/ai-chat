@@ -1,12 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Empty, ErrorAlert, Field, formatDate, formatNumber, Loading, Modal, PageHeader } from '../components/ui';
+import { Card, Empty, ErrorAlert, Field, formatDate, formatNumber, Loading, Modal, OwnedBadge, PageHeader } from '../components/ui';
 import { api, KnowledgeBase } from '../lib/api';
+import { useSession } from '../lib/session';
 
 export const KnowledgePage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isGuest, canModify } = useSession();
   const bases = useQuery({ queryKey: ['knowledge-bases'], queryFn: () => api.get<KnowledgeBase[]>('/knowledge-bases') });
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState('');
@@ -54,7 +56,7 @@ export const KnowledgePage = () => {
               {bases.data?.map((base) => (
                 <tr key={base.id} className="clickable" onClick={() => navigate(`/knowledge/${base.id}`)}>
                   <td>
-                    <strong>{base.name}</strong>
+                    <strong>{base.name}</strong> <OwnedBadge show={isGuest && canModify(base)} />
                     {base.description && <div className="muted">{base.description}</div>}
                   </td>
                   <td className="mono">{formatNumber(base.documents)}</td>

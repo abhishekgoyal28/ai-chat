@@ -10,6 +10,13 @@ const optionalText = (max: number) => z.string().max(max).nullable().optional();
 
 export const loginSchema = z.object({ email: z.string().email().max(191), password: z.string().min(1).max(200) });
 
+/** Google appends other parameters (scope, authuser, prompt); they are ignored. */
+export const googleCallbackQuerySchema = z.object({
+  code: z.string().min(1).max(2048).optional(),
+  state: z.string().min(1).max(2048).optional(),
+  error: z.string().max(200).optional(),
+});
+
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200),
   newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(200),

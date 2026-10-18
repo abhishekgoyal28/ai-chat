@@ -82,6 +82,8 @@ export enum AdminRole {
   ADMIN = 'ADMIN',
   /** Agents, personas, prompts, knowledge and conversations. */
   EDITOR = 'EDITOR',
+  /** Self-service sign-up (Google): sees what an editor sees, changes only what they created. */
+  GUEST = 'GUEST',
 }
 
 export enum ConfigResourceType {

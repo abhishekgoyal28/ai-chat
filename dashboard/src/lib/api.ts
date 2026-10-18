@@ -44,7 +44,12 @@ export const api = {
 
 // --- types returned by the admin API ----------------------------------------
 
-export type Role = 'ADMIN' | 'EDITOR';
+export type Role = 'ADMIN' | 'EDITOR' | 'GUEST';
+
+/** The admin_users id that created an item; null for items that predate ownership. */
+export interface Owned {
+  createdById: string | null;
+}
 
 export interface Me {
   id: string;
@@ -81,7 +86,7 @@ export interface AgentSettings {
   actions: AgentAction[];
 }
 
-export interface Agent {
+export interface Agent extends Owned {
   id: string;
   slug: string;
   name: string;
@@ -96,7 +101,7 @@ export interface Agent {
   updatedAt: string;
 }
 
-export interface Persona {
+export interface Persona extends Owned {
   id: string;
   name: string;
   displayName: string;
@@ -107,7 +112,7 @@ export interface Persona {
   updatedAt: string;
 }
 
-export interface Prompt {
+export interface Prompt extends Owned {
   id: string;
   kind: 'MASTER' | 'DOMAIN';
   name: string;
@@ -118,7 +123,7 @@ export interface Prompt {
   defaultText?: string;
 }
 
-export interface KnowledgeBase {
+export interface KnowledgeBase extends Owned {
   id: string;
   name: string;
   description: string | null;

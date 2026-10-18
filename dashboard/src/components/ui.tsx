@@ -56,6 +56,13 @@ export const Loading = () => <div className="empty">Loading…</div>;
 export const ErrorAlert = ({ error }: { error: unknown }) =>
   error ? <div className="alert danger">{error instanceof Error ? error.message : String(error)}</div> : null;
 
+export const ReadOnlyNotice = ({ what }: { what: string }) => (
+  <div className="alert warn">Read-only: this {what} was created by someone else. You can view it, but only change {what}s you create.</div>
+);
+
+/** Marks rows a guest created, so their own items stand out in a shared workspace. */
+export const OwnedBadge = ({ show }: { show: boolean }) => (show ? <Badge tone="accent">yours</Badge> : null);
+
 export const Tabs = <T extends string>({ tabs, active, onChange }: { tabs: Array<{ id: T; label: string }>; active: T; onChange: (id: T) => void }) => (
   <div className="tabs" role="tablist">
     {tabs.map((tab) => (

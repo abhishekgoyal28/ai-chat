@@ -1,0 +1,11 @@
+name = "ai-chat-agent"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "."
+
+# Secrets — set via `wrangler pages secret put <NAME>`:
+#   GOOGLE_CLIENT_ID      — your Google OAuth client id
+#   GOOGLE_CLIENT_SECRET  — your Google OAuth client secret
+#   OAUTH_SECRET          — any 32+ char random string (used for HMAC state signing)
+#   AIC_API_URL           — your ai-chat deployment HTTPS URL (a hostname, not an IP)
+#   AIC_HOST_API_KEY      — your ai-chat host API key (aic_...)
+#   AIC_AGENT_SLUG        — the agent slug to demo  (e.g. guide)

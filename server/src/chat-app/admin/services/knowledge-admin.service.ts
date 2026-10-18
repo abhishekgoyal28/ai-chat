@@ -4,6 +4,7 @@ import { KnowledgeBase, KnowledgeDocument } from '../../../shared/database/entit
 import { ConfigResourceType } from '../../../shared/domain/enums';
 import { ConflictError, NotFoundError } from '../../../shared/errors/app-errors';
 import { AdminPrincipal } from '../../auth/admin-auth.service';
+import { assertCanModify } from '../../auth/resource-ownership';
 import {
   knowledgeBaseInputSchema,
   knowledgeBaseUpdateSchema,
@@ -54,21 +55,21 @@ export class KnowledgeAdminService {
   }
 
   async createBase(input: z.infer<typeof knowledgeBaseInputSchema>, by: AdminPrincipal): Promise<KnowledgeBase> {
-    const base = await this.knowledge.createBase({ name: input.name, description: input.description ?? null });
+    const base = await this.knowledge.createBase({ name: input.name, description: input.description ?? null, createdById: by.id });
     await this.revisions.record(ConfigResourceType.KNOWLEDGE_BASE, base.id, base.revision, { name: base.name, description: base.description }, by);
     return base;
   }
 
   async updateBase(id: string, input: z.infer<typeof knowledgeBaseUpdateSchema>, by: AdminPrincipal): Promise<KnowledgeBase> {
-    await this.requireBase(id);
+    await this.requireModifiableBase(id, by);
     await this.knowledge.updateBase(id, input.expectedRevision, { name: input.name, description: input.description ?? null });
     const base = await this.requireBase(id);
     await this.revisions.record(ConfigResourceType.KNOWLEDGE_BASE, base.id, base.revision, { name: base.name, description: base.description }, by);
     return base;
   }
 
-  async deleteBase(id: string): Promise<void> {
-    await this.requireBase(id);
+  async deleteBase(id: string, by: AdminPrincipal): Promise<void> {
+    await this.requireModifiableBase(id, by);
     const users = await this.agents.findReferencing('knowledgeBaseIds', id);
     if (users.length > 0) {
       throw new ConflictError(`still used by: ${users.map((agent) => agent.name).join(', ')}`);
@@ -81,7 +82,7 @@ export class KnowledgeAdminService {
   }
 
   async createDocument(baseId: string, input: z.infer<typeof knowledgeDocumentInputSchema>, by: AdminPrincipal): Promise<KnowledgeDocumentSummary> {
-    await this.requireBase(baseId);
+    await this.requireModifiableBase(baseId, by);
     const content = normaliseDocumentText(input.content);
     const document = await this.knowledge.createDocument({
       knowledgeBaseId: baseId,
@@ -96,6 +97,7 @@ export class KnowledgeAdminService {
   }
 
   async updateDocument(baseId: string, id: string, input: z.infer<typeof knowledgeDocumentUpdateSchema>, by: AdminPrincipal): Promise<KnowledgeDocumentSummary> {
+    await this.requireModifiableBase(baseId, by);
     const existing = await this.requireDocument(baseId, id);
     const content = normaliseDocumentText(input.content);
     await this.knowledge.updateDocument(id, input.expectedRevision, {
@@ -110,7 +112,8 @@ export class KnowledgeAdminService {
     return this.summarise(document);
   }
 
-  async deleteDocument(baseId: string, id: string): Promise<void> {
+  async deleteDocument(baseId: string, id: string, by: AdminPrincipal): Promise<void> {
+    await this.requireModifiableBase(baseId, by);
     await this.requireDocument(baseId, id);
     await this.knowledge.deleteDocument(id);
   }
@@ -137,6 +140,13 @@ export class KnowledgeAdminService {
       createdAt: document.createdAt,
       updatedAt: document.updatedAt,
     };
+  }
+
+  /** Documents have no owner of their own: whoever may change the base may change its documents. */
+  private async requireModifiableBase(id: string, by: AdminPrincipal): Promise<KnowledgeBase> {
+    const base = await this.requireBase(id);
+    assertCanModify(by, base);
+    return base;
   }
 
   private async requireBase(id: string): Promise<KnowledgeBase> {

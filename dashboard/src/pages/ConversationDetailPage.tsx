@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { Card, confirmAction, ErrorAlert, formatDate, Loading, PageHeader, StatusBadge, useToast } from '../components/ui';
 import { api, ConversationItem, TranscriptMessage } from '../lib/api';
+import { useSession } from '../lib/session';
 
 interface Detail {
   conversation: ConversationItem & {
@@ -32,6 +33,7 @@ export const ConversationDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { isGuest } = useSession();
   const detail = useQuery({ queryKey: ['conversation', id], queryFn: () => api.get<Detail>(`/conversations/${id}`), refetchInterval: 5000 });
 
   if (!detail.data) {
@@ -62,7 +64,7 @@ export const ConversationDetailPage = () => {
             {conversation.generating && <span className="badge accent">generating</span>}
           </span>
         }
-        actions={conversation.status === 'ACTIVE' && <button className="danger" onClick={() => void end()}>End conversation</button>}
+        actions={conversation.status === 'ACTIVE' && !isGuest && <button className="danger" onClick={() => void end()}>End conversation</button>}
       />
       <div className="grid-2" style={{ gridTemplateColumns: '2fr 1fr', alignItems: 'start' }}>
         <Card title="Transcript" description="Everything stored, including parts not yet revealed and failed turns.">

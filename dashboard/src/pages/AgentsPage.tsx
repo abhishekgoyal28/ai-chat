@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { Card, Empty, ErrorAlert, formatDate, Loading, PageHeader, StatusBadge } from '../components/ui';
+import { Card, Empty, ErrorAlert, formatDate, Loading, OwnedBadge, PageHeader, StatusBadge } from '../components/ui';
 import { Agent, api, Persona, Provider } from '../lib/api';
+import { useSession } from '../lib/session';
 
 const describeSession = (agent: Agent): string => {
   const duration = agent.settings.session.durationSec;
@@ -13,6 +14,7 @@ const describeSession = (agent: Agent): string => {
 
 export const AgentsPage = () => {
   const navigate = useNavigate();
+  const { isGuest, canModify } = useSession();
   const agents = useQuery({ queryKey: ['agents'], queryFn: () => api.get<Agent[]>('/agents') });
   const personas = useQuery({ queryKey: ['personas'], queryFn: () => api.get<Persona[]>('/personas') });
   const providers = useQuery({ queryKey: ['providers'], queryFn: () => api.get<Provider[]>('/providers') });
@@ -57,7 +59,7 @@ export const AgentsPage = () => {
               {agents.data?.map((agent) => (
                 <tr key={agent.id} className="clickable" onClick={() => navigate(`/agents/${agent.id}`)}>
                   <td>
-                    <strong>{agent.name}</strong>
+                    <strong>{agent.name}</strong> <OwnedBadge show={isGuest && canModify(agent)} />
                     <div className="mono muted">{agent.slug}</div>
                   </td>
                   <td>{personaName(agent.personaId)}</td>
