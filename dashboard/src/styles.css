@@ -701,7 +701,30 @@ pre.block {
 .google-sign-in {
   width: 100%;
   justify-content: center;
+  gap: 10px;
   text-decoration: none;
+  padding: 11px 16px;
+  font-size: 15px;
+  font-weight: 650;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 2px 10px rgba(79, 70, 229, 0.25);
+  transition: filter 0.15s, box-shadow 0.15s;
+}
+
+.google-sign-in:hover {
+  background: var(--accent);
+  filter: brightness(1.07);
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.32);
+}
+
+.google-sign-in-mark {
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 3px;
+  padding: 2px;
+  box-sizing: content-box;
 }
 
 .login-divider {
