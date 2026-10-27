@@ -1,5 +1,9 @@
 # ai-chat
 
+> **Setting up? Hand this README to an AI assistant.** Paste it into Claude, ChatGPT, or any coding agent — or point the agent at this repo — and ask it to set the platform up for you. It's written to be read and acted on end to end by an assistant, so you don't have to work through it yourself.
+
+> **Try it live:** [**ai-chat-agent-b4v.pages.dev**](https://ai-chat-agent-b4v.pages.dev) — sign in to chat with Ava, the platform's own guide agent, open the full admin dashboard and build your own agent, or [view the architecture](https://ai-chat-agent-b4v.pages.dev/architecture).
+
 **A self-hostable AI chat platform you plug into any product.** Your backend starts a conversation for a signed-in user; your web or mobile app chats in real time over a WebSocket; operators shape every agent — persona, prompts, knowledge, models, session rules — from a built-in dashboard, without deploys.
 
 - **Real-time and reliable.** WebSocket delivery with acknowledgements, a durable queue between every hop, idempotent processing end to end, and resync after reconnects — no lost or duplicated messages.
